@@ -1,0 +1,98 @@
+1. VARIACIÓN PBI
+
+```{r}
+LinkPBICrecimiento="https://github.com/orlando-20181209/Entrega-1/raw/master/Variaci%C3%B3n%20del%20PBI.xlsx"
+PBI=import(LinkPBICrecimiento)
+```
+
+```{r}
+names(PBI)
+PBI[,c(5:16)]=lapply(PBI[,c(5:16)],as.numeric)
+PBI[,c(1:2,4:12,14:16)]=NULL
+```
+
+```{r}
+names(PBI)[names(PBI)=="Country Name"]="País"
+names(PBI)[names(PBI)=="2017 [YR2017]"]="Variación"
+```
+
+```{r}
+PBI = PBI[-c(265:269), ]
+```
+
+
+2. PBI PER CÁPITA
+
+```{r}
+LinkPBIPerCápita="https://github.com/orlando-20181209/Entrega-1/raw/master/PBI%20per%20c%C3%A1pita.xlsx"
+PBIpc=import(LinkPBIPerCápita)
+```
+
+```{r}
+names(PBIpc)
+PBIpc[,c(5:16)]=lapply(PBIpc[,c(5:16)],as.numeric)
+PBIpc[,c(1:2,4:12,14:16)]=NULL
+PBIpc = PBIpc[-c(265:269), ]
+```
+
+```{r}
+names(PBIpc)[names(PBIpc)=="Country Name"]="País"
+names(PBIpc)[names(PBIpc)=="2017 [YR2017]"]="PBIpc"
+```
+
+3. IMPUESTOS
+
+```{r}
+LinkImpuestos="https://github.com/orlando-20181209/Entrega-1/raw/master/Impuestos%20sobre%20bienes%20y%20servicios.xlsx"
+Impuestos=import(LinkImpuestos)
+```
+
+```{r}
+names(Impuestos)
+Impuestos[,c(5:16)]=lapply(Impuestos[,c(5:16)],as.numeric)
+Impuestos[,c(1:2,4:12,14:16)]=NULL
+Impuestos = Impuestos[-c(265:269), ]
+```
+
+```{r}
+names(Impuestos)[names(Impuestos)=="Country Name"]="País"
+names(Impuestos)[names(Impuestos)=="2017 [YR2017]"]="Impuestos"
+```
+
+4. INVERSIÓN
+
+```{r}
+LinkInversión="https://github.com/orlando-20181209/Entrega-1/raw/master/Inversi%C3%B3n%20Fija.xlsx"
+Inversión=import(LinkInversión)
+```
+
+```{r}
+names(Inversión)
+Inversión[,c(5:16)]=lapply(Inversión[,c(5:16)],as.numeric)
+Inversión[,c(1:2,4:12,14:16)]=NULL
+Inversión = Inversión[-c(265:269), ]
+```
+
+```{r}
+names(Inversión)[names(Inversión)=="Country Name"]="País"
+names(Inversión)[names(Inversión)=="2017 [YR2017]"]="Inversión"
+```
+
+5. Merge
+
+```{r}
+Impuestos_Inversión=merge(Impuestos,Inversión,by.x='País', by.y='País')
+Impuestos_Inversión_PBI=merge(Impuestos_Inversión,PBI)
+FINAL=merge(Impuestos_Inversión_PBI,PBIpc)
+```
+
+```{r}
+FINAL=FINAL[-grep("World|African|Europe|IDA|IBRD|Latin|Low|Middle|Other|States|Pacific|demographic|Heavily|income|developed|Sub-Saharan",FINAL$País),]
+FINAL=FINAL[complete.cases(FINAL),]
+row.names(FINAL)=NULL
+```
+
+```{r}
+write.csv(FINAL, "Tendencia Económica.csv", row.names = F)
+```
+
