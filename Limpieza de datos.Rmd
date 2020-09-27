@@ -1,3 +1,10 @@
+Librerías
+
+```{r}
+library(rio)
+```
+
+
 1. VARIACIÓN PBI
 
 ```{r}
