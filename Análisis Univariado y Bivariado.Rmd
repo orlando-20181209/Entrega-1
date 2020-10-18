@@ -1,0 +1,54 @@
+```{r}
+library("rio")
+link='https://github.com/orlando-20181209/Entrega-1/raw/master/BaseFinalmerge.csv'
+Tend=import(link)
+```
+
+```{r}
+names(Tend)
+names(Tend)[names(Tend) == 'Inversi\xf3n'] <- 'Inversion'
+names(Tend)[names(Tend) == 'Variaci\xf3n'] <- 'Variacion'
+```
+
+Análisis univariado
+```{r}
+summary(Tend)
+sd(Tend$Impuestos)
+sd(Tend$Inversion)
+sd(Tend$Variacion)
+sd(Tend$PBIpc)
+```
+
+Análisis bivariado
+```{r}
+cor.test(Tend$gastosocial, Tend$Impuestos)
+plot(Tend$gastosocial, Tend$Impuestos,
+     main="Relación entre la Recaudación de Impuestos y el Gasto Social", 
+     xlab="Gasto Social", 
+     ylab="Recuadación de Impuesto")
+```
+
+```{r}
+cor.test(Tend$gastosocial, Tend$Inversion)
+plot(Tend$gastosocial, Tend$Inversion,
+     main="Relación entre la Inversión Fija y el Gasto Social", 
+     xlab="Gasto Social", 
+     ylab="Inversión Fija")
+```
+
+```{r}
+cor.test(Tend$gastosocial, Tend$Variacion)
+plot(Tend$gastosocial, Tend$Variacion,
+     main="Relación entre la Variación del PBI y el Gasto Social", 
+     xlab="Gasto Social", 
+     ylab="Variación del PBI")
+```
+
+```{r}
+cor.test(Tend$gastosocial, Tend$PBIpc)
+plot(Tend$gastosocial, Tend$PBIpc,
+     main="Relación entre la Variación del PBI per Cápita y el Gasto Social", 
+     xlab="Gasto Social", 
+     ylab="Variación del PBI per Cápita")
+```
+
