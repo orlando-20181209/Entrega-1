@@ -1,0 +1,119 @@
+---
+title: "MERGE"
+author: "Xiomara Quiñonez"
+date: "14/10/2020"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+1. Bases de datos
+```{r}
+library(rio)
+link="https://github.com/Xiomara20180370/Xiomararepositorio-/raw/master/VariableContextoPol%C3%ADtico.csv"
+link2="https://github.com/orlando-20181209/Entrega-1/raw/master/Tendencia%20Econ%C3%B3mica.csv"
+link3="https://github.com/daniel-cv/Estadistica3/raw/master/accountability.csv"
+link4="https://github.com/georginarojasj/datos2daentrega/raw/master/condiciones.csv"
+link5="https://github.com/orlando-20181209/Entrega-1/raw/master/VarDepend.csv"
+
+#Variable Dependiente
+BaseD=import(link5)
+
+#Contexto Político Nacional
+Base1=import(link)
+#Tendencia Económica
+Base2=import(link2)
+#Accountability
+Base3=import(link3)
+#Condiciones de vida
+Base4=import(link4) 
+```
+
+2. Explorando las variables independiente
+```{r}
+names(Base1)
+```
+```{r}
+names(Base2)
+```
+```{r}
+names(Base3)
+```
+```{r}
+names(Base4)
+```
+```{r}
+names(BaseD)
+```
+
+
+3. Preparación
+```{r}
+names(Base1)[names(Base1) == 'Country'] <- 'Pais'
+names(Base2)[names(Base2) == 'Pa\xeds'] <- 'Pais'
+names(Base4)[names(Base4) == 'Country'] <- 'Pais'
+names(BaseD)[names(BaseD) == 'country'] <- 'Pais'
+```
+
+4. Merge
+```{r}
+total1=merge(Base1,Base2, by.x='Pais', by.y='Pais') 
+total2=merge(total1,Base3, by.x = 'Pais', by.y = 'Pais')
+total3=merge(total2,BaseD, by.x = 'Pais', by.y = 'Pais')
+basefinal=merge(total3,Base4, by.x = 'Pais', by.y = 'Pais')
+```
+
+```{r}
+write.csv(basefinal, "BaseFinalmerge.csv", row.names = F)
+```
+
+4.2 Merge con NA's
+
+```{r}
+FINAL1=merge(BaseD,Base1,all.x=T,all.y=T)
+FINAL1=merge(FINAL1,Base2,all.x=T,all.y=T)
+FINAL1=merge(FINAL1,Base3,all.x=T,all.y=T)
+FINAL1=merge(FINAL1,Base4,all.x=T,all.y=T)
+```
+
+```{r}
+library(knitr)
+library(kableExtra)
+kable(FINAL1[!complete.cases(FINAL1),],type='html')%>%
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+                  font_size = 15)
+```
+
+```{r}
+FINAL1 = FINAL1[-c(4,13,24,27,42,44,46,60,62,96,98,106,109,125,134,137,152,166,170,172,177,184,208), ]
+
+row.names(FINAL1)=NULL
+```
+
+```{r}
+names(FINAL1)
+names(FINAL1)[names(FINAL1) == 'PoliticalparticiÂ­pation'] <- 'Politcial Participation'
+names(FINAL1)[names(FINAL1) == 'EstabilidadPolÃ­tica'] <- 'Estabilidad Política'
+```
+
+```{r}
+FINAL1 = FINAL1[-c(11,23,26,31,42,48,54,70,75,80,88,89,133,135,137,138,139,142,149,153,159,162,163,167,184,188), ]
+
+row.names(FINAL1)=NULL
+```
+
+ELIMINANDO CON MÁS DE 4 NA's
+
+```{r}
+FINAL1 = FINAL1[-c(5,11,13,16,27,40,56,60,76,77,82,88,91,101,110,112,120,123,124,128,132,134,138,146,147,150,151,155,156,159,160,161), ]
+row.names(FINAL1)=NULL
+```
+
+
+```{r}
+write.csv(FINAL1, "BaseFinalNA.csv", row.names = F)
+write.csv(FINAL1, "BaseFinalNA.xlsx", row.names = F)
+```
+
+
+
+
