@@ -1,0 +1,978 @@
+---
+title: "RMD-Final"
+output:
+  html_document:
+    df_print: paged
+---
+
+# LIBRERÍAS 
+
+```{r}
+library(stringr)
+library(magrittr)
+library(rio)
+library(readr)
+library(cluster)
+library(plyr) 
+library(psych)
+library(knitr)
+library(kableExtra)
+library(factoextra)
+library(ggrepel)
+library(htmltab)
+library(dplyr)
+library(dbscan)
+library(fpc)
+library(ggplot2)
+library(scatterplot3d)
+library(ggpubr)
+library(ggplot2)
+library(stargazer)
+library(sjPlot)
+library(stringr)
+library(magrittr)
+library(rio)
+library(cluster)
+library(plyr) 
+library(psych)
+library(knitr) 
+library(kableExtra)
+library(factoextra)
+library(ggrepel)
+library(htmltab)
+library(dplyr)
+library(dbscan)
+library(fpc)
+library(polycor)
+library(ggcorrplot)
+library(matrixcalc)
+library(GPArotation)
+library(plotly)
+library(BBmisc)
+```
+
+# IMPORTAMOS LAS VARIABLES
+
+1. CONDICIONES DE VIDA
+
+  1.1 HDI 
+```{r}
+
+library(htmltab) 
+
+linkWiki_hdi = "https://en.wikipedia.org/wiki/List_of_countries_by_Human_Development_Index"
+linkPath_hdi= '//*[@id="mw-content-text"]/div[1]/table[1]'
+
+HDI = htmltab(doc = linkWiki_hdi, 
+                which =linkPath_hdi)
+
+```
+
+
+```{r}
+names(HDI)
+
+HDI[c(1,2,4)] <- list (NULL)
+
+names(HDI) = c("Pais", "HDI")
+
+str(HDI$HDI) 
+HDI$HDI=gsub("%","",HDI$HDI)
+HDI$HDI=gsub("\\,",".",HDI$HDI)
+HDI$HDI =as.numeric(HDI$HDI)
+
+#vemos si hay valores perdidos 
+HDI[!complete.cases(HDI),]
+HDI$Pais=gsub("Â","",HDI$Pais)
+HDI[,]=lapply(HDI[,], trimws,whitespace = "[\\h\\v]")
+```
+
+
+  1.2 POBREZA
+
+```{r}
+
+
+linkWiki_pob= "https://en.wikipedia.org/wiki/List_of_countries_by_percentage_of_population_living_in_poverty"
+linkPath_pob='
+//*[@id="mw-content-text"]/div[1]/table[3] '
+
+Pobreza = htmltab(doc = linkWiki_pob, 
+                which =linkPath_pob)
+```
+
+```{r}
+names(Pobreza)
+
+Pobreza [c (3, 4, 5, 6, 7, 8)] <- list (NULL) 
+
+names(Pobreza) = c("Pais", "POB")
+
+table(Pobreza$POB)
+str(Pobreza$POB)
+```
+
+
+
+```{r}
+Pobreza$POB=parse_number(Pobreza$POB)
+
+str(Pobreza$POB)
+
+Pobreza$Pais=gsub("Â","",Pobreza$Pais)
+Pobreza[,]=lapply(Pobreza[,], trimws,whitespace = "[\\h\\v]")
+```
+
+  1.3 Desempleo
+
+
+```{r}
+linkdesem= "https://github.com/georginarojasj/datos2daentrega/raw/master/desempleo.xlsx"
+Desempleo= import(linkdesem)
+```
+
+```{r}
+
+names(Desempleo)
+Desempleo [c (1, 2, 4, 5, 6, 7, 8, 9, 10)] <- list (NULL) 
+
+#tambien elimino 2019/2020 porque no hay muchos datos
+Desempleo [c (6,7)] <- list (NULL) 
+
+
+#me quedo con el año 2015 porque tiene mas datos 
+Desempleo [c (3,4, 5)] <- list (NULL) 
+
+```
+ 
+```{r}
+names(Desempleo) = c("Pais", "Desem")
+
+str(Desempleo$Desem)
+Desempleo$Desem=as.numeric(Desempleo$Desem)
+
+Desempleo$Pais=gsub("Â","",Desempleo$Pais)
+Desempleo[,]=lapply(Desempleo[,], trimws,whitespace = "[\\h\\v]")
+```
+ 
+
+ Merge 
+```{r}
+vidacond = merge(Desempleo,HDI,by.x='Pais', by.y='Pais')
+
+CondVida=merge(vidacond,Pobreza)
+```
+
+Verificar si hay casos en una base de datos que no hay en la otra
+```{r}
+CondVida[!complete.cases(CondVida),] 
+```
+
+Eliminamos los NA
+```{r}
+CondVida=CondVida[complete.cases(CondVida),]
+row.names(CondVida)=NULL
+```
+
+2. CONTEXTO POLÍTICO NACIONAL
+
+  2.1 DEMOCRACIA
+```{r}
+linkCIA_demo = "https://en.wikipedia.org/wiki/Democracy_Index"
+linkPath_demo='//*[@id="mw-content-text"]/div[1]/table[2]'
+
+IndiceDemo = htmltab(doc = linkCIA_demo, 
+                which =linkPath_demo)
+
+names(IndiceDemo)
+names(IndiceDemo)=str_split(string = names(IndiceDemo),
+                pattern = ' ',
+                simplify = T)[,1]
+IndiceDemo$Changes=NULL
+IndiceDemo$Rank=NULL
+IndiceDemo[,]=lapply(IndiceDemo[,], trimws,whitespace = "[\\h\\v]")
+head(IndiceDemo)
+
+Demo=IndiceDemo %>% arrange(Country)
+head(Demo)
+```
+
+```{r}
+Demo[,c(2,4,8,9)]=NULL
+head(Demo)
+```
+
+```{r}
+Demo[,-1]=lapply(Demo[,-1], as.numeric)
+Demo$Country=gsub("Â","",Demo$Country)
+Demo[,]=lapply(Demo[,], trimws,whitespace = "[\\h\\v]")
+str(Demo)
+names(Demo)[1] = "Pais"
+```
+
+  2.2 LIBERTAD
+  
+```{r}
+linkCIA_free= "https://en.wikipedia.org/wiki/Freedom_in_the_World"
+linkPath_free='//*[@id="mw-content-text"]/div[1]/table[1]'
+
+IndiceLibertad = htmltab(doc = linkCIA_free, 
+                which =linkPath_free)
+```
+
+```{r}
+names(IndiceLibertad)
+str(IndiceLibertad)
+```
+
+```{r}
+IndiceLibertad[,c(-1,-14,-15,-16,-17)]=NULL
+IndiceLibertad[,c(2)]=NULL
+names(IndiceLibertad)[1]="Pais"
+names(IndiceLibertad)[2]="DerechosPoliticos2019"
+names(IndiceLibertad)[3]="LibertadCivil2019"
+names(IndiceLibertad)[4]="Libertad"
+head(IndiceLibertad)
+```
+
+```{r}
+str(IndiceLibertad)
+```
+
+```{r}
+names(IndiceLibertad)
+```
+
+```{r}
+IndiceLibertad$Pais=gsub('\\*','',IndiceLibertad$Pais)
+head(IndiceLibertad)
+```
+
+```{r}
+IndiceLibertad[,c(3,4)]=NULL
+IndiceLibertad$Pais=gsub("Â","",IndiceLibertad$Pais)
+IndiceLibertad[,]=lapply(IndiceLibertad[,], trimws,whitespace = "[\\h\\v]")
+str(IndiceLibertad)
+```
+
+  2.3 CONFLICTOS
+
+```{r}
+lkXLSX2="https://github.com/Xiomara20180370/Xiomararepositorio-/raw/master/Data_Extract_From_Worldwide_Governance_Indicators.xlsx"
+Conflictos=import(lkXLSX2)
+```
+
+```{r}
+names(Conflictos)
+```
+
+```{r}
+Conflictos[,c(2,3,4)]=NULL
+head(Conflictos)
+```
+
+```{r}
+names(Conflictos)[1]="Pais"
+names(Conflictos)[2]="EstabilidadPolitica"
+```
+
+```{r}
+Conflictos$EstabilidadPolitica = as.numeric(Conflictos$EstabilidadPolitica)
+Conflictos$Pais=gsub("Â","",Conflictos$Pais)
+Conflictos[,]=lapply(Conflictos[,], trimws,whitespace = "[\\h\\v]")
+str(Conflictos)
+```
+
+  2.4 MERGE
+
+```{r}
+ContextoPol=merge(Conflictos,Demo,by.x='Pais', by.y='Pais')
+ContextoPol[duplicated(ContextoPol$Pais),]
+ContextoPol[!complete.cases(ContextoPol$Pais),]
+```
+
+
+3. TENDENCIA ECONÓMICA
+
+  3.1 VARIACIÓN DEL PBI
+
+```{r}
+LinkPBICrecimiento="https://github.com/orlando-20181209/Entrega-1/raw/master/Variaci%C3%B3n%20del%20PBI.xlsx"
+PBI=import(LinkPBICrecimiento)
+```
+
+```{r}
+names(PBI)
+PBI[,c(5:16)]=lapply(PBI[,c(5:16)],as.numeric)
+PBI[,c(1:2,4:12,14:16)]=NULL
+```
+
+```{r}
+names(PBI)[names(PBI)=="Country Name"]="Pais"
+names(PBI)[names(PBI)=="2017 [YR2017]"]="Variacion"
+```
+
+```{r}
+PBI = PBI[-c(265:269), ]
+```
+
+  3.2 VARIACIÓN DEL PBI PER CÁPITA
+
+```{r}
+LinkPBIPerCapita="https://github.com/orlando-20181209/Entrega-1/raw/master/PBI%20per%20c%C3%A1pita.xlsx"
+PBIpc=import(LinkPBIPerCapita)
+```
+
+```{r}
+names(PBIpc)
+PBIpc[,c(5:16)]=lapply(PBIpc[,c(5:16)],as.numeric)
+PBIpc[,c(1:2,4:12,14:16)]=NULL
+PBIpc = PBIpc[-c(265:269), ]
+```
+
+```{r}
+names(PBIpc)[names(PBIpc)=="Country Name"]="Pais"
+names(PBIpc)[names(PBIpc)=="2017 [YR2017]"]="PBIpc"
+```
+
+  3.3 IMPUESTOS
+
+```{r}
+LinkImpuestos="https://github.com/orlando-20181209/Entrega-1/raw/master/Impuestos%20sobre%20bienes%20y%20servicios.xlsx"
+Impuestos=import(LinkImpuestos)
+```
+
+```{r}
+names(Impuestos)
+Impuestos[,c(5:16)]=lapply(Impuestos[,c(5:16)],as.numeric)
+Impuestos[,c(1:2,4:12,14:16)]=NULL
+Impuestos = Impuestos[-c(265:269), ]
+```
+
+```{r}
+names(Impuestos)[names(Impuestos)=="Country Name"]="Pais"
+names(Impuestos)[names(Impuestos)=="2017 [YR2017]"]="Impuestos"
+```
+
+  3.4 INVERSIÓN FIJA
+
+```{r}
+LinkInversion="https://github.com/orlando-20181209/Entrega-1/raw/master/Inversi%C3%B3n%20Fija.xlsx"
+Inversion=import(LinkInversion)
+```
+
+```{r}
+names(Inversion)
+Inversion[,c(5:16)]=lapply(Inversion[,c(5:16)],as.numeric)
+Inversion[,c(1:2,4:12,14:16)]=NULL
+Inversion = Inversion[-c(265:269), ]
+```
+
+```{r}
+names(Inversion)[names(Inversion)=="Country Name"]="Pais"
+names(Inversion)[names(Inversion)=="2017 [YR2017]"]="Inversion"
+```
+
+  3.5 HAGAMOS UN MERGE
+
+```{r}
+Impuestos_Inversion=merge(Impuestos,Inversion,by.x='Pais', by.y='Pais')
+Impuestos_Inversion_PBI=merge(Impuestos_Inversion,PBI)
+TENDENCIA=merge(Impuestos_Inversion_PBI,PBIpc)
+```
+
+```{r}
+TENDENCIA=TENDENCIA[-grep("World|African|Europe|IDA|IBRD|Latin|Low|Middle|Other|States|Pacific|demographic|Heavily|income|developed|Sub-Saharan",TENDENCIA$Pais),]
+TENDENCIA=TENDENCIA[complete.cases(TENDENCIA),]
+row.names(TENDENCIA)=NULL
+```
+
+4. ACCOUNTABILITY
+
+  4.1 PARTICIPACIÓN CIUDADANA
+
+```{r}
+lkCSV = "https://github.com/daniel-cv/Estadistica2/raw/master/EGOV_DATA_2020.csv"
+Participacion = import(lkCSV)
+```
+
+Verificamos
+
+```{r}
+names(Participacion)
+head(Participacion)
+str(Participacion)
+```
+
+```{r}
+Participacion$`Survey Year`= NULL
+Participacion$`E-Government Rank` = NULL
+Participacion$`E-Government Index` = NULL
+Participacion$`Online Service Index` = NULL
+Participacion$`Human Capital Index` = NULL
+Participacion$`Telecommunication Infrastructure Index` = NULL
+```
+
+Verificamos
+
+```{r}
+names(Participacion)
+```
+
+Cambiamos el nombre de las variables
+
+```{r}
+names(Participacion) = c("Pais", "Participacion")
+```
+
+Verificamos nuevamente
+
+```{r}
+head(Participacion, 20)
+str(Participacion)
+```
+
+Nos damos cuenta de que existe un espacio en blanco en los países. Lo eliminamos
+
+```{r}
+Participacion[,] = lapply(Participacion[,], trimws, whitespace = "[\\h\\v]")
+```
+ 
+Convertimos a numerico
+
+```{r}
+Participacion$Participacion = as.numeric(Participacion$Participacion)
+```
+
+Verificacion final
+
+```{r}
+str(Participacion)
+```
+
+  4.2 EFICIENCIA DEL ESTADO
+
+importamos los datos
+
+```{r}
+lkDTA = "https://github.com/daniel-cv/Estadistica3/raw/master/wgidataset.dta"
+gobernanza = import(lkDTA)
+```
+
+Verificamos
+
+```{r}
+names(gobernanza)
+head(gobernanza)
+str(gobernanza)
+```
+
+Seleccionamos los datos del 2019
+
+```{r}
+str(gobernanza)
+Gobernanza = filter(gobernanza, year == 2019)
+head(Gobernanza)
+names(Gobernanza)
+```
+
+Como observamos, tenemos muchas columnas, con datos que no necesitamos. Entonces eliminamos las columnas sobrantes
+
+```{r}
+Gobernanza$code = NULL
+Gobernanza$vas = NULL
+Gobernanza$van = NULL
+Gobernanza$var = NULL
+Gobernanza$val = NULL
+Gobernanza$vau = NULL
+Gobernanza$pvs = NULL
+Gobernanza$pvn = NULL
+Gobernanza$pvr = NULL
+Gobernanza$pvu = NULL
+Gobernanza$ges = NULL
+Gobernanza$gen = NULL
+Gobernanza$ger = NULL
+Gobernanza$gel = NULL
+Gobernanza$geu = NULL
+Gobernanza$rqs = NULL
+Gobernanza$rqn = NULL
+Gobernanza$rqr = NULL
+Gobernanza$rql = NULL
+Gobernanza$rqu = NULL
+Gobernanza$rls = NULL
+Gobernanza$rln = NULL
+Gobernanza$rlr = NULL
+Gobernanza$rll = NULL
+Gobernanza$rlu = NULL
+Gobernanza$ccs = NULL
+Gobernanza$ccn = NULL
+Gobernanza$ccr = NULL
+Gobernanza$ccl = NULL
+Gobernanza$pvl = NULL
+Gobernanza$rll = NULL
+Gobernanza$ccu = NULL
+Gobernanza$vae = NULL
+Gobernanza$pve = NULL
+Gobernanza$rle= NULL
+Gobernanza$year = NULL
+```
+
+Tras eliminar las columnas sobrantes nos quedamos con "Pais", "Eficiencia del Estado", "Calidad regulatoria" y "Control de corrupcion".
+
+Verificamos
+
+```{r}
+names(Gobernanza)
+```
+
+Ahora cambiamos los nombres de las variables
+
+
+```{r}
+names(Gobernanza) = c("Pais", "Eficiencia", "CalidadReg", "ControlCorr")
+```
+
+Eliminamos los datos perdidos
+
+```{r}
+#Verificamos donde estan
+Gobernanza[!complete.cases(Gobernanza),]
+
+#Los eliminamos
+Gobernanza = na.omit(Gobernanza)
+```
+
+Ahora realizamos el merge con participacion ciudadana
+
+```{r}
+Accountability = merge(Gobernanza , Participacion)
+head(Accountability)
+str(Accountability)
+```
+
+5. GASTO SOCIAL
+
+Importamos los datos
+
+```{r}
+link = "https://countryeconomy.com/government/expenditure"
+xpath = '//*[@id="tb1"]'
+GastoSocial = htmltab(doc = link, which = xpath)
+```
+
+Limpiamos los datos
+
+```{r}
+GastoSocial[,c(2,3,4,5,6,7,9)] = NULL
+names(GastoSocial) = c("Pais", "gastosocial")
+GastoSocial$gastosocial = parse_number(GastoSocial$gastosocial)
+GastoSocial$Pais=str_split(string = GastoSocial$Pais,
+                         pattern = "\\[",
+                         simplify = T)[,1]
+GastoSocial[,]=lapply(GastoSocial[,], trimws,whitespace = "[\\h\\v]")
+```
+
+```{r}
+str(GastoSocial)
+GastoSocial$gastosocial=as.numeric(GastoSocial$gastosocial)
+```
+
+# FORMAMOS LA BASE FINAL
+
+```{r}
+FINAL1=merge(GastoSocial,ContextoPol,all.x=T,all.y=T)
+FINAL1=merge(FINAL1,TENDENCIA,all.x=T,all.y=T)
+FINAL1=merge(FINAL1,Accountability,all.x=T,all.y=T)
+Data=merge(FINAL1,CondVida,all.x=T,all.y=T)
+```
+
+```{r}
+library(knitr)
+library(kableExtra)
+kable(Data[!complete.cases(Data),],type='html')%>%
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"),
+                  font_size = 15)
+```
+
+```{r}
+Data = Data[-c(4,13,24,27,42,44,46,60,62,96,98,106,109,125,134,137,152,166,170,172,177,184,208), ]
+
+row.names(Data)=NULL
+```
+
+```{r}
+Data = Data[-c(11,23,26,31,42,48,54,70,75,80,88,89,133,135,137,138,139,142,149,153,159,162,163,167,184,188), ]
+
+row.names(Data)=NULL
+```
+
+ELIMINANDO CON MÁS DE 4 NA's
+
+```{r}
+Data = Data[-c(5,11,13,16,27,40,56,60,76,77,82,88,91,101,110,112,120,123,124,128,132,134,138,146,147,150,151,155,156,159,160,161), ]
+row.names(Data)=NULL
+```
+
+```{r}
+names(Data)
+names(Data)= c("Pais","gastosocial","EstPol","Electoral","PolPart","PolCult","CivilLib","Impuestos","Inversion","Variacion","PBIpc","Eficiencia","CalidadReg","ControlCorr","Participacion","Desem","HDI","POB")
+```
+
+
+# ANÁLISIS UNIVARIADO
+
+```{r}
+Data[,-c(1)]=lapply(Data[,-c(1)], as.numeric)
+summary(Data)
+```
+
+# ANÁLISIS BIVARIADO
+
+- Accountability
+```{r}
+plot(Data$Eficiencia~Data$gastosocial,data=Data, main="Eficiencia y Gasto Social",
+     xlab="Gasto social", ylab="Eficiencia", pch=19)
+
+cor.test(Data$Eficiencia, Data$gastosocial)
+
+plot(Data$CalidadReg~Data$gastosocial,data=Data, main="Calidad Regulatoria y Gasto Social",
+     xlab="Gasto social", ylab="Calidad Regulatoria", pch=19)
+
+cor.test(Data$CalidadReg, Data$gastosocial)
+
+plot(Data$ControlCorr~Data$gastosocial,data=Data, main="Control de corrupcion y Gasto Social",
+     xlab="Gasto social", ylab="Control de corrupcion", pch=19)
+
+cor.test(Data$ControlCorr, Data$gastosocial)
+
+plot(Data$Participacion~Data$gastosocial,data=Data, main="Participacion y Gasto Social",
+     xlab="Gasto social", ylab="Participacion", pch=19)
+
+cor.test(Data$Participacion, Data$gastosocial)
+```
+
+  - Tendencia Económica
+```{r}
+cor.test(Data$gastosocial, Data$Impuestos)
+
+plot(Data$gastosocial, Data$Impuestos,
+     main="Relación entre la Recaudación de Impuestos y el Gasto Social", 
+     xlab="Gasto Social", 
+     ylab="Recuadación de Impuesto")
+
+cor.test(Data$gastosocial, Data$Inversion)
+
+plot(Data$gastosocial, Data$Inversion,
+     main="Relación entre la Inversión Fija y el Gasto Social", 
+     xlab="Gasto Social", 
+     ylab="Inversión Fija")
+
+cor.test(Data$gastosocial, Data$Variacion)
+
+plot(Data$gastosocial, Data$Variacion,
+     main="Relación entre la Variación del PBI y el Gasto Social", 
+     xlab="Gasto Social", 
+     ylab="Variación del PBI")
+
+cor.test(Data$gastosocial, Data$PBIpc)
+
+plot(Data$gastosocial, Data$PBIpc,
+     main="Relación entre la Variación del PBI per Cápita y el Gasto Social", 
+     xlab="Gasto Social", 
+     ylab="Variación del PBI per Cápita")
+```
+
+  - Condiciones de vida
+```{r}
+
+plot(Data$gastosocial, Data$Desem, 
+     main="Desempleo y Gasto Social", 
+     xlab="Gasto Social", 
+     ylab="Desempleo") 
+
+
+cor.test(Data$gastosocial, Data$Desem)
+
+
+plot(Data$gastosocial, Data$HDI, 
+     main="Índice de desarrrollo humano y Gasto Social", 
+     xlab="Gasto Social", 
+     ylab="Índice de desarroollo humano") 
+
+
+cor.test(Data$gastosocial, Data$HDI)
+
+plot(Data$gastosocial, Data$POB, 
+     main="Pobreza y Gasto Social", 
+     xlab="Gasto Social", 
+     ylab="Pobreza") 
+
+
+cor.test(Data$gastosocial, Data$POB)
+```
+
+  - Contexto Político Nacional
+```{r}
+cor.test(~EstPol+gastosocial,data=Data)
+
+plot(Data$EstPol, Data$gastosocial, 
+     main="Relación entre Gasto Social y Estabilidad Política", 
+     xlab="Estabilidad Politica", 
+     ylab="Gasto Social")
+
+cor.test(~Electoral+gastosocial,data=Data)
+
+plot(Data$Electoral, Data$gastosocial, 
+     main="Relación entre Gasto Social y Procesos Electorales y Pluralismo", 
+     xlab="Procesos Electorales y Pluralismo", 
+     ylab="Gasto Social")
+
+cor.test(~PolCult+gastosocial,data=Data)
+
+plot(Data$PolCult, Data$gastosocial, 
+     main="Relación entre Gasto Social y Cultura Política", 
+     xlab="Cultura Politica", 
+     ylab="Gasto Social")
+
+cor.test(~CivilLib+gastosocial,data=Data)
+
+plot(Data$CivilLib, Data$gastosocial, 
+     main="Relación entre Gasto Social y Libertades Civiles", 
+     xlab="Libertidades Civiles", 
+     ylab="Gasto Social")
+```
+
+# ANÁLISIS EFA
+
+```{r}
+subdata = Data[,-c(1,2)]
+subdata = na.omit(subdata)
+```
+
+  - MATRIZ DE CORRELACIONES
+
+```{r}
+matriz<-hetcor(subdata)
+matriz_corr<- matriz$correlations
+```
+
+  a. Sin evaluar significancia
+
+```{r}
+ggcorrplot(matriz_corr)
+```
+
+  b. Evaluando significancia
+
+```{r}
+ggcorrplot(matriz_corr,
+           p.mat = cor_pmat(matriz_corr),
+           insig = "blank")
+```
+
+  - DIAGNOSTICO DE LA MATRIZ DE CORRELACIONES
+
+  a. Test KMO
+
+```{r}
+KMO(matriz_corr) 
+```
+
+  b. Test de Barlett
+
+```{r}
+cortest.bartlett(matriz_corr,n=nrow(subdata))$p.value>0.05
+```
+
+  c. Test for Singular Square Matrix
+
+```{r}
+is.singular.matrix(matriz_corr)
+```
+
+  - IDENTIFICAMOS EL NUMERO DE FACTORES
+
+Presentamos al grafico
+
+```{r}
+fa.parallel(subdata, fm = 'ML', fa = 'fa')
+```
+
+Solicitamos el numero de factores
+
+```{r}
+factorial <- fa(subdata,nfactors = 4,cor = 'mixed',rotate = "varimax",fm="minres")
+```
+
+  - VISUALIZAMOS EL EFA SOLICITADO
+
+  a. Resultado inicial
+
+```{r}
+print(factorial$loadings)
+```
+
+  b. Resultado mejorado
+
+```{r}
+print(factorial$loadings,cutoff = 0.5)
+```
+
+Visualizamos las variables y su relación con las variables latentes creados
+
+```{r}
+fa.diagram(factorial)
+```
+
+  - EVALUAMOS EL EFA
+
+  a. Raiz del error cuadrado
+
+```{r}
+factorial$crms
+```
+
+  b. Raiz del error cuadratico medio de aproximacion
+
+```{r}
+factorial$RMSEA
+```
+
+  c. Indice de Tucker-Lewis
+
+```{r}
+factorial$TLI
+```
+
+  d. Variables que aportan mas a los factores
+
+```{r}
+sort(factorial$communality)
+```
+
+  e. Variables que contribuyen a mas de un factor
+
+```{r}
+sort(factorial$complexity)
+```
+
+  - POSIBLES VALORES PROYECTADOS
+
+```{r}
+factorial_casos<-as.data.frame(factorial$scores)
+head(factorial_casos)
+summary(factorial_casos)
+```
+
+## REGRESION LINEAL
+
+Proponemos modelos
+
+```{r}
+modelo1 = formula(gastosocial ~ Desem + HDI + POB)
+modelo2 = formula(gastosocial ~ EstPol + PolCult + Electoral + CivilLib)
+modelo3 = formula(gastosocial ~ Impuestos + Inversion + Variacion + PBIpc)
+modelo4 = formula(gastosocial ~ Eficiencia + CalidadReg + ControlCorr + PolPart)
+```
+
+Planteamos las regresiones
+
+```{r}
+reg1 = lm(modelo1, data = Data)
+reg2 = lm(modelo2, data = Data)
+reg3 = lm(modelo3, data = Data)
+reg4 = lm(modelo4, data = Data)
+```
+
+# a. Modelo 1: condiciones de vida
+
+```{r}
+reg1 = lm(modelo1, data = Data)
+stargazer(reg1,type = "text",intercept.bottom = FALSE)
+```
+
+# b. Modelo 2: Contexto politico nacional
+
+```{r}
+reg2 = lm(modelo2, data = Data)
+stargazer(reg2,type = "text",intercept.bottom = FALSE)
+```
+
+# c. Modelo 3: Tendencia economica
+
+```{r}
+reg3 = lm(modelo3, data = Data)
+stargazer(reg3,type = "text",intercept.bottom = FALSE)
+```
+
+# d. Modelo 4: Accountability
+
+```{r}
+reg4 = lm(modelo4, data = Data)
+stargazer(reg4,type = "text",intercept.bottom = FALSE)
+```
+
+
+# Diagnóstico de la regresión
+
+**1. Linealidad**
+
+```{r}
+plot(reg1, 1)
+plot(reg2, 1)
+plot(reg3, 1)
+plot(reg4, 1)
+```
+
+**2. Homocedastacidad**
+
+```{r}
+library(lmtest)
+bptest(reg1)
+bptest(reg2)
+bptest(reg3)
+bptest(reg4)
+```
+
+**3. Normalidad de residuos**
+
+```{r}
+plot(reg1, 2)
+shapiro.test(reg1$residuals)
+plot(reg2, 2)
+shapiro.test(reg2$residuals)
+plot(reg3, 2)
+shapiro.test(reg3$residuals)
+plot(reg4, 2)
+shapiro.test(reg4$residuals)
+```
+
+**4. Multicolinealidad**
+
+```{r}
+library(DescTools)
+VIF(reg1)
+VIF(reg2)
+VIF(reg3)
+VIF(reg4)
+```
+
+**5. Valores influyentes**
+
+```{r}
+plot(reg1, 5)
+plot(reg2, 5)
+plot(reg3, 5)
+plot(reg4, 5)
+```
+
+```{r}
+checkReg1=as.data.frame(influence.measures(reg1)$is.inf)
+checkReg1[checkReg1$cook.d | checkReg1$hat,]
+checkReg2=as.data.frame(influence.measures(reg2)$is.inf)
+checkReg2[checkReg2$cook.d | checkReg2$hat,]
+checkReg3=as.data.frame(influence.measures(reg3)$is.inf)
+checkReg3[checkReg3$cook.d | checkReg3$hat,]
+checkReg4=as.data.frame(influence.measures(reg4)$is.inf)
+checkReg4[checkReg3$cook.d | checkReg4$hat,]
+```
